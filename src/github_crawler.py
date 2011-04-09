@@ -1,7 +1,8 @@
 """ Script that drives the GitHub Crawler program that acquires information
 about public repositories. The user inputed parameters are used to tailor the
-search of repositories.
+search of repositories. The information is stored in a CSV file for later use.
 """
+import csv
 import argparse
 import time
 import urllib2
@@ -12,8 +13,8 @@ class GitHubCrawler():
 
   """Class that crawls GitHub for repository information.
 
-  The crawling process will take into account the user parameters, by filtering
-  the results and to only act further on targeted repositories.
+  The crawling process will take into account the user parameters to narrow
+  the search down. The found repositories will be saved into a CSV file.
   """
 
   # List of all recognized GitHub languages
@@ -32,6 +33,12 @@ class GitHubCrawler():
   # List of keywords to be used in the search
   _keywords = None
 
+  # The CSV column headers
+  _headers = ["created", "created_at", "description", "followers", "fork",
+      "forks", "has_downloads", "has_issues", "has_wiki", "homepage",
+      "master_branch", "name", "open_issues", "owner", "private", "pushed",
+      "pushed_at", "score", "size", "type", "url", "username", "watchers"]
+
   # API repository call
   API_CALL = "https://github.com/api/v2/json/repos/"
 
@@ -48,6 +55,17 @@ class GitHubCrawler():
 
     self._primaryLanguage = self.cleanInput(language)  # Must clean the input
     self._keywords = '+'.join(keywords.split())  # Replace whitespace with +
+
+    # Get repositories.csv ready
+    csv_file = open('repositories.csv','wb')
+    csv_writer = csv.writer(csv_file)
+    header = []
+    header.extend(self._headers)
+    header.extend(self._languages)
+    header.pop()
+    csv_writer.writerow(header)
+    csv_file.close()
+
     self.crawlRepositories()
 
   def cleanInput(self, input):
@@ -65,9 +83,9 @@ class GitHubCrawler():
 
   def crawlRepositories(self):
     """Crawls GitHub using their API to incrementally acquire a list of
-    repositories that match the primary language. The repositories come in sets
-    of 100 per page, and are handled one at a time. This process terminates
-    when there are no more repositories or an error occurs.
+    repositories that match the primary language and search keywords. The
+    repositories come in sets of 100 per page, and are handled one at a time.
+    This terminates when there are no more repositories or an error occurs.
     """
     page = 0
     moreRepositories = True
@@ -78,17 +96,26 @@ class GitHubCrawler():
         print "LOG: Acquiring new list of repository from page", page
 
         # API search for all repositories of the primary language on given page
-        repositories = json.load(urllib2.urlopen((self.API_CALL + "search/\"\"?language=%s&start_page=%d" %(self._primaryLanguage, page))))['repositories']
+        repositories = json.load(urllib2.urlopen((self.API_CALL + "search/\"%s\"?language=%s&start_page=%d" %(self._keywords, self._primaryLanguage, page))))['repositories']
 
         if len(repositories) == 0:
           print "LOG: No repositories left in search"
           moreRepositories = False
         else:
-
+          pageOfRepositories = []
+          count = 0
           # Loop over list of repositories
           for repository in repositories:
-            time.sleep(1)  # To prevent over-calling the API
-            self.handleRepository(repository)
+            time.sleep(0.75)  # To prevent over-calling the API
+            count += 1
+            print "LOG: Handling Repository %s (%d/100)" %(repository['name'], count)
+            pageOfRepositories.append(self.handleRepository(repository))
+
+          # Append repository page information to csv file
+          csv_file = open('repositories.csv','a')
+          csv_writer = csv.writer(csv_file, quoting=csv.QUOTE_NONNUMERIC)
+          csv_writer.writerows(pageOfRepositories)
+          csv_file.close()
 
       except urllib2.HTTPError:
         print "ERROR: Unable to fetch repositories from GitHub (API Limit/Invalid Page)"
@@ -101,17 +128,31 @@ class GitHubCrawler():
 
     Args:
       repository: The repository that will be examined to acquire information
-    """
-    print "LOG: Fetching repository", repository['name']
 
+    Returns:
+      List of language size for repository.
+    """
     # Acquire the languages of the repository
     repositoryLanguages = json.load(urllib2.urlopen(self.API_CALL + "show/%s/%s/languages" %(repository['owner'], repository['name'])))['languages']
 
     # Pretty print the repository and language information
-    repositoryDump = json.dumps(repository, sort_keys=True, indent=2)
-    languagesDump = json.dumps(repositoryLanguages, sort_keys=True, indent=2)
-    print repositoryDump
-    print languagesDump
+    #repositoryDump = json.dumps(repository, sort_keys=True, indent=2)
+    #languagesDump = json.dumps(repositoryLanguages, sort_keys=True, indent=2)
+    #print repositoryDump
+    #print languagesDump
+
+    # Acquire list all the information
+    allInfo = []
+    for info in self._headers:
+      try: allInfo.append(repository[info].encode("utf-8"))
+      except KeyError: allInfo.append(0)
+      except AttributeError: allInfo.append(repository[info])
+
+    for language in self._languages:
+      try: allInfo.append(repositoryLanguages[language])
+      except KeyError: allInfo.append(0)
+
+    return allInfo
 
 # If this module is ran as main
 if __name__ == '__main__':
@@ -119,7 +160,7 @@ if __name__ == '__main__':
   # Define the argument options to be parsed
   parser = argparse.ArgumentParser(
       description = 'github_crawler <https://github.com/kevinjalbert/github_crawler>',
-      version = 'github_crawler 0.1.0',
+      version = 'github_crawler 0.2.0',
       usage = 'python github_crawler.py -l LANGUAGE -k KEYWORDS')
   parser.add_argument(
       '-l',
