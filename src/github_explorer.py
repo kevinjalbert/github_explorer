@@ -7,6 +7,8 @@ import argparse
 import time
 import socket
 import urllib2
+import logging
+import subprocess
 try: import simplejson as json
 except ImportError: import json
 
@@ -17,6 +19,9 @@ class GitHubExplorer():
   The crawling process will take into account the user parameters to narrow
   the search down. The found repositories will be saved into a CSV file.
   """
+
+  # Log everything, and send it to stderr.
+  logging.basicConfig( level=logging.DEBUG )
 
   # List of all recognized GitHub languages
   _languages = ["ActionScript", "Ada", "Arc", "ASP", "Assembly", "Boo", "C",
@@ -31,8 +36,11 @@ class GitHubExplorer():
   # Primary language to be used in the search
   _primaryLanguage = None
 
-  # List of keywords to be used in the search
+  # List of keywords to be used in the search (ex: "android testing units")
   _keywords = None
+
+  # List of source statements to be used in the search (ex: term1|term2)
+  _sourceStatements = None
 
   # The CSV column headers
   _headers = ["created", "created_at", "description", "followers", "fork",
@@ -46,21 +54,24 @@ class GitHubExplorer():
   # API repository call
   API_CALL = "https://github.com/api/v2/json/repos/"
 
-  def __init__(self, language, keywords, apiDelay, apiTimeout):
+  def __init__(self, language, keywords, sourceStatements, apiDelay, apiTimeout):
     """Default constructor that initializes the GitHubExplorer to use the
     specified primary language, keywords, API call delay and the API timeout.
 
     Args:
       language: The primary language to be used in the search
       keywords: The string of keywords to be used in the search
+      sourceStatements: The string of source statements to be used in the search
       apiDelay: The value to be used for the API call delay
       apiTimeout: The value to be used for the API timeout
     """
     if language not in self._languages:
-      raise Exception("%s is not not valid language" %(language))
+      logging.fatal("%s is not not valid language" %(language))
+      language = ""
 
     self._primaryLanguage = self.cleanInput(language)  # Must clean the input
     self._keywords = '+'.join(keywords.split())  # Replace whitespace with +
+    self._sourceStatements = sourceStatements
     self._apiDelay = apiDelay
     socket.setdefaulttimeout(float(apiTimeout)) # Set API timeout
 
@@ -101,7 +112,7 @@ class GitHubExplorer():
     while (moreRepositories):
       # Try to grab list of repositories
       page += 1
-      print "LOG: Acquiring new list of repository from page", page
+      logging.info("Acquiring new list of repository from page %d" %page)
 
       # API search for all repositories of the primary language on given page
       successful = False
@@ -111,15 +122,15 @@ class GitHubExplorer():
           successful = True
         except urllib2.HTTPError, e:
           if e.code == 502:
-            print "WARNING: Retrying to acquire list of repositories (Bad API Call)"
+            logging.warn("Retrying to acquire list of repositories (Bad API Call)")
           else:
-            print "ERROR: Unable to fetch repositories (API Limit/Invalid Page)"
-            print "WAIT: 60 seconds"
+            logging.error("Unable to fetch repositories (API Limit/Invalid Page)")
+            logging.info("Waiting 60 seconds")
             time.sleep(60)
-            print "WAIT: Done"
+            logging.info("Waiting done")
 
       if repositories == None or len(repositories) == 0:
-        print "LOG: No repositories left in search"
+        logging.info("No repositories left in search")
         moreRepositories = False
       else:
         pageOfRepositories = []
@@ -128,8 +139,21 @@ class GitHubExplorer():
         for repository in repositories:
           time.sleep(float(self._apiDelay))  # To control over-calling the API
           count += 1
-          print "LOG: Handling Repository %s (%d/100)" %(repository['name'], count)
-          pageOfRepositories.append(self.handleRepository(repository))
+          logging.info("Handling Repository %s (%d/100)" %(repository['name'], count))
+          pageOfRepositories.append(self.examineRepository(repository))
+
+          # Perform the handle Repository cloning
+          self.cloneRepository(repository)
+
+          # Perform grepping of source statements
+          relavant = self.isStatementInRepository(repository)
+
+          if relavant:
+            # Perform custom handling of the repository
+            self.customHandleRepository(repository)
+          else:
+            # Clean up repository
+            self.cleanRepository(repository)
 
         # Append repository page information to csv file
         csv_file = open('repositories.csv','a')
@@ -137,8 +161,34 @@ class GitHubExplorer():
         csv_writer.writerows(pageOfRepositories)
         csv_file.close()
 
+  def cloneRepository(self, repository):
+    logging.info("Cloning Repository %s" %repository['name'])
+    process = subprocess.Popen( ['git', 'clone', repository['url']], stdout=subprocess.PIPE, shell=False)
+    output,error = process.communicate()
+    print output
+    logging.info("Finished cloning repository %s" %repository['name'])
 
-  def handleRepository(self, repository):
+  def customHandleRepository(self, repository):
+    pass
+
+  def isStatementInRepository(self, repository):
+    logging.info("Grepping for sourceStatements (%s) in Repository %s" %(self._sourceStatements, repository['name']))
+    process = subprocess.Popen( ['egrep', self._sourceStatements, '-riswl', repository['name'], '--exclude-dir=*/.git/*'], stdout=subprocess.PIPE, shell=False)
+    output,error = process.communicate()
+
+    if len(output) > 0:
+      logging.info("Statements found in repository %s" %repository['name'])
+      return True
+    else:
+      logging.info("Statements not found in repository %s" %repository['name'])
+      return False
+
+  def cleanRepository(self, repository):
+    logging.info("Removing cloned repository %s" %repository['name'])
+    process = subprocess.Popen( ['rm', '-rf', repository['name']], stdout=subprocess.PIPE, shell=False)
+    logging.info("Removed cloned repository %s" %repository['name'])
+
+  def examineRepository(self, repository):
     """An individual repository is handled here by acquiring all of its general
     information. To acquire the language information, another GitHub API call
     is needed.
@@ -157,12 +207,12 @@ class GitHubExplorer():
         successful = True
       except urllib2.HTTPError, e:
         if e.code == 502:
-          print "WARNING: Retrying to acquire language information of repository (Bad API Call)"
+          logging.warn("Retrying to acquire language information of repository (Bad API Call)")
         else:
-          print "ERROR: Unable to fetch repository information (API Limit/Invalid Page)"
-          print "WAIT: 60 seconds"
+          logging.error("Unable to fetch repository information (API Limit/Invalid Page)")
+          logging.info("Waiting 60 seconds")
           time.sleep(60)
-          print "WAIT: Done"
+          logging.info("Waiting done")
 
     # Acquire list all the information
     allInfo = []
@@ -183,8 +233,7 @@ if __name__ == '__main__':
   # Define the argument options to be parsed
   parser = argparse.ArgumentParser(
       description = 'github_crawler <https://github.com/kevinjalbert/github_explorer>',
-      version = 'github_explorer 0.2.0',
-      usage = 'python github_explorer.py -l LANGUAGE -k KEYWORDS')
+      version = 'github_explorer 0.2.0')
   parser.add_argument(
       '-l',
       action='store',
@@ -198,11 +247,17 @@ if __name__ == '__main__':
       dest='keywords',
       help='Keywords to search (ex: "Testing Concurrency Android")')
   parser.add_argument(
+      '-s',
+      action='store',
+      default="",
+      dest='sourceStatements',
+      help='Source Statements to search (ex: "java.util|synchronized|latch"), able to search with multiple terms (this-or-that)')
+  parser.add_argument(
       '-d',
       action='store',
-      default="1.25",
+      default="1",
       dest='apiDelay',
-      help='Delay in seconds between API calls (apiDelay/60 = # of calls per minute, cannot exceed 60/minute) [DEFAULT=1.25]')
+      help='Delay in seconds between API calls (apiDelay/60 = # of calls per minute, cannot exceed 60/minute) [DEFAULT=1]')
   parser.add_argument(
       '-t',
       action='store',
@@ -213,4 +268,4 @@ if __name__ == '__main__':
   # Parse the arguments passed from the shell
   userArgs = parser.parse_args()
 
-  gitHubExplorer = GitHubExplorer(userArgs.language, userArgs.keywords, userArgs.apiDelay, userArgs.apiTimeout)
+  gitHubExplorer = GitHubExplorer(userArgs.language, userArgs.keywords, userArgs.sourceStatements, userArgs.apiDelay, userArgs.apiTimeout)
