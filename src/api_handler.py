@@ -4,6 +4,7 @@ import urllib2
 try: import simplejson as json
 except ImportError: import json
 
+
 class APIHandler():
 
   """This class handles all calls to the GitHub API
@@ -46,8 +47,10 @@ class APIHandler():
 
     """
 
-    self._logger.info("Acquiring new list of repositories from page %d" %nextPage)
-    APICall = self.API_CALL + "search/\"%s\"?language=%s&start_page=%d" %(keywords, language, nextPage)
+    self._logger.info("Acquiring new list of repositories from page %d"
+                      %nextPage)
+    APICall = self.API_CALL + "search/\"%s\"?language=%s&start_page=%d" \
+              %(keywords, language, nextPage)
     return self._makeAPICall(APICall)['repositories']
 
   def getLanguages(self, repositoryName, repositoryOwner):
@@ -62,8 +65,10 @@ class APIHandler():
 
     """
 
-    self._logger.info("Acquiring language information from repository %s" %repositoryName)
-    APICall = self.API_CALL + "show/%s/%s/languages" %(repositoryOwner, repositoryName)
+    self._logger.info("Acquiring language information from repository %s"
+                      %repositoryName)
+    APICall = self.API_CALL + "show/%s/%s/languages" %(repositoryOwner,
+              repositoryName)
     return self._makeAPICall(APICall)['languages']
 
   def _makeAPICall(self, apiCall):
@@ -94,7 +99,8 @@ class APIHandler():
       except urllib2.HTTPError, e:
         self._logger.warn("Unsuccessful API call -> HTTP Error: %s" %e.code)
         if currentAttempt <= maxAttempts:
-          self._logger.info("Retrying API call attempt %d/%d" %(currentAttempt, maxAttempts))
+          self._logger.info("Retrying API call %d/%d" %(currentAttempt,
+                            maxAttempts))
           self._logger.info("Waiting 60 seconds")
           time.sleep(60)
         else:

@@ -1,6 +1,7 @@
 import logging
 import csv
 
+
 class ReportHandler():
 
   """This class handles the reporting of the gathered repository information
@@ -49,7 +50,7 @@ class ReportHandler():
 
     """
 
-    csv_file = open(self._CSV_NAME,'wb')
+    csv_file = open(self._CSV_NAME, 'wb')
     csv_writer = csv.writer(csv_file)
 
     header = []
@@ -72,7 +73,7 @@ class ReportHandler():
 
     """
 
-    csv_file = open(self._CSV_NAME,'a')
+    csv_file = open(self._CSV_NAME, 'a')
     csv_writer = csv.writer(csv_file, quoting=csv.QUOTE_NONNUMERIC)
 
     csv_writer.writerows(data)

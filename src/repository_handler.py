@@ -3,6 +3,7 @@ import subprocess
 import api_handler
 import report_handler
 
+
 class RepositoryHandler():
 
   """This class handles the repository creation and manipulation
@@ -50,7 +51,8 @@ class RepositoryHandler():
   # Logger being used for this execution
   _logger = None
 
-  def __init__(self, headers, languages, primaryLanguage, keywords, sourceStatements, clone, processNumber, maxProcesses, logger):
+  def __init__(self, headers, languages, primaryLanguage, keywords,
+               sourceStatements, clone, processNumber, maxProcesses, logger):
     """Constructor that sets the passed parameters as well as the handlers
 
     The parameters are sets within the class for future use. The APIHandler
@@ -69,7 +71,8 @@ class RepositoryHandler():
 
     """
 
-    self._reportHandler = report_handler.ReportHandler(headers, languages, logger)
+    self._reportHandler = report_handler.ReportHandler(headers, languages,
+                                                       logger)
     self._apiHandler = api_handler.APIHandler(logger)
 
     self._languages = languages
@@ -102,7 +105,8 @@ class RepositoryHandler():
     while not done:
 
       # Acquire next page of repositories
-      repositories = self._apiHandler.getNextPage(page, self._primaryLanguage, self._keywords)
+      repositories = self._apiHandler.getNextPage(page, self._primaryLanguage,
+                                                  self._keywords)
 
       # Consider terminating condition
       if repositories == None or len(repositories) == 0:
@@ -130,7 +134,8 @@ class RepositoryHandler():
                   self._cleanRepository(repository)
 
           else:
-            self._logger.warn("No content found in repository %s, therefore skipping" %repository['name'])
+            self._logger.warn("No content found in repository %s, therefore "
+                              "skipping" %repository['name'])
 
         self._reportHandler.appendCSVData(dataOfRepositories)
       page += self._maxProcesses
@@ -147,7 +152,9 @@ class RepositoryHandler():
     """
 
     self._logger.info("Cloning Repository %s" %repository['name'])
-    process = subprocess.Popen( ['git', 'clone', '--depth', '1', '-v', '--progress', repository['url']], stdout=subprocess.PIPE, shell=False)
+    process = subprocess.Popen(['git', 'clone', '--depth', '1', '-v',
+                                 '--progress', repository['url']],
+                                 stdout=subprocess.PIPE, shell=False)
     output, error = process.communicate()
 
   def _customHandleRepository(self, repository):
@@ -184,15 +191,20 @@ class RepositoryHandler():
 
     """
 
-    self._logger.info("Grepping for sourceStatements (%s) in Repository %s" %(self._sourceStatements, repository['name']))
-    process = subprocess.Popen( ['egrep', self._sourceStatements, '-riswl', repository['name'], '--exclude-dir=*/.git/*'], stdout=subprocess.PIPE, shell=False)
+    self._logger.info("Grepping for sourceStatements (%s) in Repository %s"
+                      %(self._sourceStatements, repository['name']))
+    process = subprocess.Popen(['egrep', self._sourceStatements, '-riswl',
+                                repository['name'], '--exclude-dir=*/.git/*'],
+                                stdout=subprocess.PIPE, shell=False)
     output, error = process.communicate()
 
     if len(output) > 0:
-      self._logger.info("Statements found in repository %s" %repository['name'])
+      self._logger.info("Statements found in repository %s"
+                        %repository['name'])
       return True
     else:
-      self._logger.info("Statements not found in repository %s" %repository['name'])
+      self._logger.info("Statements not found in repository %s"
+                        %repository['name'])
       return False
 
   def _cleanRepository(self, repository):
@@ -205,7 +217,8 @@ class RepositoryHandler():
 
     """
 
-    process = subprocess.Popen( ['rm', '-rf', repository['name']], stdout=subprocess.PIPE, shell=False)
+    process = subprocess.Popen(['rm', '-rf', repository['name']],
+                                stdout=subprocess.PIPE, shell=False)
     output, error = process.communicate()
     self._logger.info("Removed cloned repository %s" %repository['name'])
 
@@ -226,7 +239,8 @@ class RepositoryHandler():
     """
     totalSize = 0
     allInfo = []
-    repositoryLanguages = self._apiHandler.getLanguages(repository['name'], repository['owner'])
+    repositoryLanguages = self._apiHandler.getLanguages(repository['name'],
+                                                        repository['owner'])
 
     for language in self._languages:
       try:

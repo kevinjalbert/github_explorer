@@ -2,6 +2,7 @@ import argparse
 import logging
 import repository_handler
 
+
 class GitHubExplorer():
 
   """This class drives the GitHub Explorer program
@@ -34,7 +35,8 @@ class GitHubExplorer():
   # Logger being used for this execution
   _logger = None
 
-  def __init__(self, primaryLanguage, keywords, sourceStatements, clone, processNumber, maxProcesses, writeLog, logger=None):
+  def __init__(self, primaryLanguage, keywords, sourceStatements, clone,
+               processNumber, maxProcesses, writeLog, logger=None):
     """Constructor that initializes the GitHubExplorer
 
     This constructor uses the specified parameters when setting up the rest of
@@ -66,7 +68,9 @@ class GitHubExplorer():
         handler = logging.StreamHandler()
 
       logger.setLevel(logging.DEBUG)
-      formatter = logging.Formatter("%(asctime)s %(levelname)-8s P" + str(processNumber) + " %(message)s", datefmt="%d %b %H:%M:%S")
+      formatter = logging.Formatter("%(asctime)s %(levelname)-8s P" +
+                                    str(processNumber) + " %(message)s",
+                                    datefmt="%d %b %H:%M:%S")
       handler.setFormatter(formatter)
       logger.addHandler(handler)
       self._logger = logger
@@ -80,7 +84,8 @@ class GitHubExplorer():
       exit()
 
     if primaryLanguage not in self._languages:
-      self.logger.fatal("%s is not not valid language, so using no set language" %(primaryLanguage))
+      self.logger.fatal("%s is not a valid language, so using no set language"
+                        %(primaryLanguage))
       primaryLanguage = ""
 
     primaryLanguage = self._cleanInput(primaryLanguage)  # Must clean the input
@@ -89,7 +94,9 @@ class GitHubExplorer():
 
     # Create the repository handler and start crawling
     self._logger.info("GitHub Explorer is about to commence its search")
-    repositoryHandler = repository_handler.RepositoryHandler(self._headers, self._languages, primaryLanguage, keywords, sourceStatements, clone, processNumber, maxProcesses, logger)
+    repositoryHandler = repository_handler.RepositoryHandler(self._headers,
+        self._languages, primaryLanguage, keywords, sourceStatements, clone,
+        processNumber, maxProcesses, logger)
     repositoryHandler.crawlRepositories()
 
   def _cleanInput(self, input):
@@ -118,52 +125,61 @@ if __name__ == '__main__':
 
   # Define the argument options to be parsed
   parser = argparse.ArgumentParser(
-      description = 'github_crawler <https://github.com/kevinjalbert/github_explorer>',
-      version = 'github_explorer 0.3.0')
+      description="<https://github.com/kevinjalbert/github_explorer>",
+      version="github_explorer 0.3.0")
   parser.add_argument(
       '-p',
       action='store',
       default=1,
       dest='processNumber',
-      help='The process number of this executing (Manually done, or through the driver.py interface)')
+      help="The process number of this executing (Manually done, or through "
+           "the driver.py interface)")
   parser.add_argument(
       '-m',
       action='store',
       default=1,
       dest='maxProcesses',
-      help='The maximum number of concurrent executions (Manually done, or through the driver.py interface)')
+      help="The maximum number of concurrent executions (Manually done, or "
+           "through the driver.py interface)")
   parser.add_argument(
       '-c',
       action='store_true',
       default=False,
       dest='clone',
-      help='Enables repositories to be cloned for additional analysis and accuracy (source statements can only be search if this is enabled)')
+      help="Enables repositories to be cloned for analysis and more accuracy "
+           "(source statements can only be search if this is enabled)")
   parser.add_argument(
       '-l',
       action='store',
       default="",
       dest='language',
-      help='Primary language to search for using GitHub\'s defined set of languages (ex: Python)')
+      help="Primary language to search for using GitHub's defined set of "
+           "languages (ex: Python)")
   parser.add_argument(
       '-k',
       action='store',
       default="",
       dest='keywords',
-      help='Keywords to be used in the search (ex: "Testing Concurrency Android")')
+      help="Keywords to be used in the search (ex: \"Testing Concurrency "
+           "Android\")")
   parser.add_argument(
       '-s',
       action='store',
       default="",
       dest='sourceStatements',
-      help='Source Statements to be used in the detailed search (ex: "java.util synchronized latch"), able to search with multiple terms (this-or-that)')
+      help="Source Statements to be used in the detailed search (ex: "
+           "\"java.util synchronized latch\"), able to search with multiple "
+           "terms (this-or-that)")
   parser.add_argument(
       '-w',
       action='store_true',
       default=False,
       dest='writeLog',
-      help='Enables the output to be written to a log file')
+      help="Enables the output to be written to a log file")
 
   userArgs = parser.parse_args()
 
   # Create the GitHub Explorer which starts this process
-  gitHubExplorer = GitHubExplorer(userArgs.language, userArgs.keywords, userArgs.sourceStatements, userArgs.clone, int(userArgs.processNumber), int(userArgs.maxProcesses), userArgs.writeLog)
+  gitHubExplorer = GitHubExplorer(userArgs.language, userArgs.keywords,
+      userArgs.sourceStatements, userArgs.clone, int(userArgs.processNumber),
+      int(userArgs.maxProcesses), userArgs.writeLog)

@@ -1,6 +1,6 @@
 #Information
 
-*Author*:    Kevin Jalbert  (blitzbolt@gmail.com)
+*Author*:    Kevin Jalbert  (kevin.j.jalbert@gmail.com)
 
 *Copyright*: Copyright (c) 2011 Kevin Jalbert
 
@@ -15,9 +15,9 @@ _The python command is linked to the 2.7 version of Python_
 
 #Execution
 1. Download the source code and place it into a directory of choice.
-2. Execute using the following command ```python github_explorer.py [options]```
+2. Execute using the following command ```python github_explorer.py [options]``` or ```python github_explorer_driver.py [options]``` _(The driver file orchestrates concurrent executions of the github\_explorer.py program)_
 
 #Options
-To see a list of the options run the following command ```python github_explorer.py -h```
+To see a list of the options run the following command ```python github_explorer.py -h``` and/or ```python github_explorer_driver.py -h```
 
 All the options are detailed in the [Options](https://github.com/kevinjalbert/github_explorer/wiki/Options "Options") page.
