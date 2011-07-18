@@ -1,5 +1,7 @@
 import logging
 import subprocess
+import time
+from datetime import datetime, timedelta
 import api_handler
 import report_handler
 
@@ -116,26 +118,52 @@ class RepositoryHandler():
         dataOfRepositories = []
 
         for repository in repositories:
-          self._logger.info("Handling Repository %s" %repository['name'])
+
+          # Make a unique name so forks and leading '-' don't cause problems
+          repository['uniqueName'] = "_%s_%s" %(repository['name'],
+                               repository['owner'])
+
+          # Change the repository url from 'https' to 'git', much faster
+          repository['url'] = "git" + repository['url'][5:]
+
+          startTime = datetime.now()  # Make note of the starting time
           size, data = self._examineRepository(repository)
+
+          # If the API call failed for examining the repository, skip it
+          if data == None:
+            self._logger.warn("Language acquisition process failed, skipping %s"
+                                  %repository['uniqueName'])
+            continue
 
           if size > 0:
             dataOfRepositories.append(data)
 
             if self._clone:
-              self._cloneRepository(repository)
+              cloned = self._cloneRepository(repository)
 
-              if self._sourceStatements != "":
-                relavant = self._isStatementInRepository(repository)
+              if cloned:
 
-                if relavant:
-                  self._customHandleRepository(repository)
-                else:
-                  self._cleanRepository(repository)
+                if self._sourceStatements != "":
+                  relavant = self._isStatementInRepository(repository)
+
+                  if relavant:
+                    self._customHandleRepository(repository)
+                  else:
+                    self._cleanRepository(repository)
+              else:
+                self._logger.warn("Clone process failed, therefore skipping")
+                continue
 
           else:
-            self._logger.warn("No content found in repository %s, therefore "
-                              "skipping" %repository['name'])
+            self._logger.warn("No content found in repository, therefore "
+                              "skipping")
+            continue
+
+          timeTaken = datetime.now() - startTime  # Figure out the time taken
+          print "P%d Done: %s (took %s)" \
+                %(self._processNumber, repository['uniqueName'], timeTaken)
+          self._logger.info("Done: %s (took %s)" \
+                            %(repository['uniqueName'], timeTaken))
 
         self._reportHandler.appendCSVData(dataOfRepositories)
       page += self._maxProcesses
@@ -151,11 +179,40 @@ class RepositoryHandler():
 
     """
 
-    self._logger.info("Cloning Repository %s" %repository['name'])
-    process = subprocess.Popen(['git', 'clone', '--depth', '1', '-v',
-                                 '--progress', repository['url']],
-                                 stdout=subprocess.PIPE, shell=False)
-    output, error = process.communicate()
+    self._logger.info("Cloning Repository %s" %repository['uniqueName'])
+
+    currentAttempt = 0
+    maxAttempts = 10  # The number of attempts to retry the API call
+    successful = False
+
+    # Keep trying to complete a successful clone (up to maxAttempts times)
+    while not successful:
+      process = subprocess.Popen(['git', 'clone', '--depth', '1',
+                                 repository['url'],
+                                 repository['uniqueName']],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 shell=False)
+      output, error = process.communicate()
+
+      # If the clone doesn't succeed wait 60 seconds and try again
+      if len(error) > 0 and "fatal: destination path" not in error and \
+         "error: unable to write sha1" not in error:
+        self._logger.warn("Unsuccessful clone -> Error (%s " %error)
+        currentAttempt += 1
+        if currentAttempt <= maxAttempts:
+          self._logger.info("Retrying clone %d/%d" %(currentAttempt,
+                            maxAttempts))
+          self._logger.info("Waiting 60 seconds")
+          time.sleep(60)
+        else:
+          self._logger.warn("Max clone attempts exceeded")
+          break
+
+      else:
+        successful = True
+
+    return successful
 
   def _customHandleRepository(self, repository):
     """Executes the custom handle function on the repository
@@ -163,8 +220,8 @@ class RepositoryHandler():
     This function is implemented by the user, and can include anything. The
     user is given the repository dictionary, and is able to navigate the
     directory that contains the cloned repository. The cloned repository is
-    located under the directory from the present working directory of the
-    repository['name'].
+    located under the present working directory with the name found from
+    repository['uniqueName'].
 
     Performs a shallow git clone of the specified repository into the present
     working directory of the file system.
@@ -191,20 +248,19 @@ class RepositoryHandler():
 
     """
 
-    self._logger.info("Grepping for sourceStatements (%s) in Repository %s"
-                      %(self._sourceStatements, repository['name']))
+    self._logger.info("Grepping for sourceStatements (%s)"
+                      %self._sourceStatements)
     process = subprocess.Popen(['egrep', self._sourceStatements, '-riswl',
-                                repository['name'], '--exclude-dir=*/.git/*'],
+                                repository['uniqueName'],
+                                '--exclude-dir=*/.git/*'],
                                 stdout=subprocess.PIPE, shell=False)
     output, error = process.communicate()
 
     if len(output) > 0:
-      self._logger.info("Statements found in repository %s"
-                        %repository['name'])
+      self._logger.info("Statements found")
       return True
     else:
-      self._logger.info("Statements not found in repository %s"
-                        %repository['name'])
+      self._logger.info("Statements not found")
       return False
 
   def _cleanRepository(self, repository):
@@ -217,10 +273,10 @@ class RepositoryHandler():
 
     """
 
-    process = subprocess.Popen(['rm', '-rf', repository['name']],
+    process = subprocess.Popen(['rm', '-rf', repository['uniqueName']],
                                 stdout=subprocess.PIPE, shell=False)
     output, error = process.communicate()
-    self._logger.info("Removed cloned repository %s" %repository['name'])
+    self._logger.info("Removed cloned repository")
 
   def _examineRepository(self, repository):
     """Examines the repository and acquires all the information from it
@@ -239,8 +295,10 @@ class RepositoryHandler():
     """
     totalSize = 0
     allInfo = []
-    repositoryLanguages = self._apiHandler.getLanguages(repository['name'],
-                                                        repository['owner'])
+    repositoryLanguages = self._apiHandler.getLanguages(repository)
+
+    if repositoryLanguages == None:
+      return None, None
 
     for language in self._languages:
       try:

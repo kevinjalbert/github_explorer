@@ -51,14 +51,18 @@ class APIHandler():
                       %nextPage)
     APICall = self.API_CALL + "search/\"%s\"?language=%s&start_page=%d" \
               %(keywords, language, nextPage)
-    return self._makeAPICall(APICall)['repositories']
+    results = self._makeAPICall(APICall) 
+    
+    if results == None:
+      return None
+    else:
+      return results['repositories']
 
-  def getLanguages(self, repositoryName, repositoryOwner):
+  def getLanguages(self, repository):
     """API call that requests the language->size values of a repository
 
     Args:
-      repositoryName: The name of the repository
-      repositoryOwner: The owner of the repository
+      repository: The the repository currently being examined
 
     Returns:
       A list of language->size values of the specified repository
@@ -66,10 +70,15 @@ class APIHandler():
     """
 
     self._logger.info("Acquiring language information from repository %s"
-                      %repositoryName)
-    APICall = self.API_CALL + "show/%s/%s/languages" %(repositoryOwner,
-              repositoryName)
-    return self._makeAPICall(APICall)['languages']
+                      %repository['uniqueName'])
+    APICall = self.API_CALL + "show/%s/%s/languages" %(repository['owner'],
+              repository['name'])
+    results = self._makeAPICall(APICall) 
+    
+    if results == None:
+      return None
+    else:
+      return results['languages']
 
   def _makeAPICall(self, apiCall):
     """Makes the actual API request given the specified apiCall.
@@ -88,16 +97,23 @@ class APIHandler():
     currentAttempt = 0
     maxAttempts = 10  # The number of attempts to retry the API call
     successful = False
+    data = None
 
     # Keep trying to complete a successful API call (up to maxAttempts times)
     while not successful:
 
       # If the API call doesn't succeed wait 60 seconds and try again
       try:
-        repositories = json.load(urllib2.urlopen(apiCall))
+        data = json.load(urllib2.urlopen(apiCall))
         successful = True
-      except urllib2.HTTPError, e:
-        self._logger.warn("Unsuccessful API call -> HTTP Error: %s" %e.code)
+      except urllib2.URLError, e:
+        if hasattr(e, 'reason'):
+          self._logger.warn("Unsuccessful API call -> URL Error: %s" %e.reason)
+        elif hasattr(e, 'code'):
+          self._logger.warn("Unsuccessful API call -> HTTP Error: %s" %e.code)
+
+        currentAttempt += 1
+
         if currentAttempt <= maxAttempts:
           self._logger.info("Retrying API call %d/%d" %(currentAttempt,
                             maxAttempts))
@@ -107,4 +123,4 @@ class APIHandler():
           self._logger.warn("API call attempts exceeded")
           return None
 
-    return repositories
+    return data

@@ -54,7 +54,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(
       description="<https://github.com/kevinjalbert/github_explorer>",
       version="github_explorer_driver 0.3.0")
-parser.add_argument(
+  parser.add_argument(
       '-m',
       action='store',
       default=1,
