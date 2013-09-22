@@ -25,3 +25,7 @@ All the options are detailed in the [Options](https://github.com/kevinjalbert/gi
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/kevinjalbert/github_explorer/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/kevinjalbert/github_explorer/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
