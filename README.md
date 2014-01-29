@@ -1,3 +1,7 @@
+GitHub Explorer
+=====
+[![Gitter Chat](http://img.shields.io/chat/gitter.png?color=brightgreen)](https://gitter.im/kevinjalbert/github_explorer)
+
 #Information
 
 *Author*:    Kevin Jalbert  (kevin.j.jalbert@gmail.com)
@@ -21,6 +25,3 @@ _The python command is linked to the 2.7 version of Python_
 To see a list of the options run the following command ```python github_explorer.py -h``` and/or ```python github_explorer_driver.py -h```
 
 All the options are detailed in the [Options](https://github.com/kevinjalbert/github_explorer/wiki/Options "Options") page.
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/kevinjalbert/github_explorer/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
